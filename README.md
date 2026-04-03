@@ -65,7 +65,7 @@ After restarting Typora:
 2. Open `Community Plugins`
 3. Enable `AI Edit`
 
-![](.\asset\overview.png)
+![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/854981fa4574014331d19f3da39d7ffeb7f8720e/asset/overview.png?raw=true)
 
 ## Configuration
 
@@ -107,10 +107,10 @@ You can point it to OpenAI-compatible gateways or self-hosted backends.
 
 The plugin will show a result dialog. You can confirm to replace the selection.
 
-![](.\asset\rightclick.png)
+![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/854981fa4574014331d19f3da39d7ffeb7f8720e/asset/rightclick.png?raw=true)
 
 And it will return the revise suggestion, click `Replace` to do that:
-![](.\asset\Revisement.png)
+![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/854981fa4574014331d19f3da39d7ffeb7f8720e/asset/Revisement.png?raw=true)
 
 ### Ask writing questions
 
@@ -121,7 +121,7 @@ And it will return the revise suggestion, click `Replace` to do that:
 
 The answer can then be inserted into the document.
 
-![](.\asset\AI_Q&A.PNG)
+![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/854981fa4574014331d19f3da39d7ffeb7f8720e/asset/AI_Q&A.png?raw=true)
 
 ## Default behavior
 
