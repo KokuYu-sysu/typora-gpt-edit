@@ -17,6 +17,7 @@
   captureSelection() {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      this.clearSavedSelection();
       return false;
     }
 

@@ -2,6 +2,21 @@
   (navigator.language || (navigator.languages && navigator.languages[0]) || "en")
 );
 
+export const CHATGPT_MODEL_PRESETS = [
+  "gpt-5.4",
+  "gpt-5.4-mini",
+  "gpt-5",
+  "gpt-5-mini",
+  "o4-mini",
+];
+
+export const OPENAI_COMPAT_MODEL_PRESETS = [
+  "gpt-5.4-mini",
+  "gpt-5.4",
+  "gpt-4.1",
+  "gpt-4o-mini",
+];
+
 function createDefaultPrompts(isChinese = localeIsChinese) {
   if (isChinese) {
     return {
@@ -48,6 +63,7 @@ export const DEFAULT_SETTINGS = {
   provider: "chatgpt",
   model: "gpt-5.4",
   oauthTokenPath: "",
+  oauthUserInfoPath: "",
   openaiCompat: {
     baseUrl: "",
     apiKey: "",

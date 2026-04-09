@@ -19,10 +19,13 @@ export function ensureStyles() {
     .ai-edit-toast.error { background: #dc2626; }
     .ai-edit-menu { position: fixed; z-index: 999998; min-width: 220px; padding: 6px 0; background: rgba(255,255,255,0.98); border: 1px solid rgba(15,23,42,0.12); border-radius: 10px; box-shadow: 0 16px 40px rgba(15,23,42,0.18); font-size: 13px; }
     .ai-edit-menu-item { padding: 8px 14px; cursor: pointer; }
+    .ai-edit-menu-item-title { font-size: 13px; color: #111827; }
+    .ai-edit-menu-item-desc { margin-top: 2px; font-size: 12px; color: #6b7280; line-height: 1.35; }
     .ai-edit-menu-item:hover { background: rgba(37,99,235,0.08); }
     .ai-edit-overlay { position: fixed; inset: 0; z-index: 999997; background: rgba(15,23,42,0.36); display: flex; align-items: center; justify-content: center; }
     .ai-edit-dialog { width: min(680px, calc(100vw - 32px)); max-height: min(84vh, 760px); background: #fff; border-radius: 14px; box-shadow: 0 20px 48px rgba(15,23,42,0.22); display: flex; flex-direction: column; overflow: hidden; }
     .ai-edit-dialog-header { display: flex; align-items: center; gap: 8px; padding: 16px 18px; border-bottom: 1px solid #e5e7eb; }
+    .ai-edit-dialog-header.draggable { cursor: move; user-select: none; }
     .ai-edit-dialog-title { font-size: 15px; font-weight: 600; }
     .ai-edit-dialog-close { margin-left: auto; border: none; background: none; font-size: 22px; cursor: pointer; color: #6b7280; }
     .ai-edit-dialog-body { padding: 16px 18px; overflow: auto; }
@@ -80,7 +83,16 @@ export function openContextMenu(options) {
   for (const item of options.items) {
     const row = document.createElement("div");
     row.className = "ai-edit-menu-item";
-    row.textContent = item.label;
+    const title = document.createElement("div");
+    title.className = "ai-edit-menu-item-title";
+    title.textContent = item.label;
+    row.appendChild(title);
+    if (item.description) {
+      const desc = document.createElement("div");
+      desc.className = "ai-edit-menu-item-desc";
+      desc.textContent = item.description;
+      row.appendChild(desc);
+    }
     row.addEventListener("click", () => {
       closeContextMenu();
       options.onSelect(item.value);
@@ -103,6 +115,75 @@ function closeOverlay(overlay) {
   if (overlay && overlay.parentNode) {
     overlay.remove();
   }
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function makeDialogDraggable(overlay) {
+  const dialog = overlay.querySelector(".ai-edit-dialog");
+  const header = overlay.querySelector(".ai-edit-dialog-header");
+  if (!dialog || !header) {
+    return;
+  }
+
+  header.classList.add("draggable");
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let startLeft = 0;
+  let startTop = 0;
+
+  function toFixedPosition() {
+    if (dialog.dataset.fixedPosition === "1") {
+      return;
+    }
+    const rect = dialog.getBoundingClientRect();
+    dialog.style.position = "fixed";
+    dialog.style.left = `${rect.left}px`;
+    dialog.style.top = `${rect.top}px`;
+    dialog.style.margin = "0";
+    dialog.style.width = `${rect.width}px`;
+    dialog.dataset.fixedPosition = "1";
+  }
+
+  function onMove(event) {
+    if (!dragging) {
+      return;
+    }
+    const maxLeft = Math.max(8, window.innerWidth - dialog.offsetWidth - 8);
+    const maxTop = Math.max(8, window.innerHeight - dialog.offsetHeight - 8);
+    const left = clamp(startLeft + (event.clientX - startX), 8, maxLeft);
+    const top = clamp(startTop + (event.clientY - startY), 8, maxTop);
+    dialog.style.left = `${left}px`;
+    dialog.style.top = `${top}px`;
+  }
+
+  function onUp() {
+    dragging = false;
+    document.removeEventListener("mousemove", onMove, true);
+    document.removeEventListener("mouseup", onUp, true);
+  }
+
+  header.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+    if (event.target?.closest?.("[data-action='close']")) {
+      return;
+    }
+    event.preventDefault();
+    toFixedPosition();
+    const rect = dialog.getBoundingClientRect();
+    dragging = true;
+    startX = event.clientX;
+    startY = event.clientY;
+    startLeft = rect.left;
+    startTop = rect.top;
+    document.addEventListener("mousemove", onMove, true);
+    document.addEventListener("mouseup", onUp, true);
+  });
 }
 
 export function closeAnyDialog() {
@@ -183,14 +264,61 @@ export function createStreamDialog(options) {
     </div>
   `;
   document.body.appendChild(overlay);
+  makeDialogDraggable(overlay);
 
   const output = overlay.querySelector("#ai-edit-stream-output");
   const footer = overlay.querySelector("#ai-edit-stream-footer");
   output.value = options.waitingText || "Waiting for response...";
+  const waitingText = options.waitingText || "Waiting for response...";
+  let completedActions = null;
+
+  function getOutputText() {
+    if (output.value === waitingText) {
+      return "";
+    }
+    return output.value.trim();
+  }
+
+  function copyOutputAndClose() {
+    navigator.clipboard?.writeText(output.value).catch(() => {});
+    showToast("Copied to clipboard.", "success");
+    api.close();
+  }
+
+  function runConfirm() {
+    if (!completedActions || typeof completedActions.onConfirm !== "function") {
+      return;
+    }
+    completedActions.onConfirm(getOutputText());
+  }
+
+  function onDialogKeyDown(event) {
+    if (!completedActions) {
+      return;
+    }
+
+    const ctrlLike = event.ctrlKey || event.metaKey;
+    if (!ctrlLike) {
+      return;
+    }
+
+    const key = String(event.key || "").toLowerCase();
+    if (key === "enter") {
+      event.preventDefault();
+      runConfirm();
+      return;
+    }
+    if (key === "c") {
+      event.preventDefault();
+      copyOutputAndClose();
+    }
+  }
+
+  document.addEventListener("keydown", onDialogKeyDown, true);
 
   const api = {
     append(delta) {
-      if (output.value === (options.waitingText || "Waiting for response...")) {
+      if (output.value === waitingText) {
         output.value = "";
       }
       output.value += delta;
@@ -200,10 +328,12 @@ export function createStreamDialog(options) {
       return output.value;
     },
     showError(message) {
+      completedActions = null;
       output.value = `${output.value}\n\n${message}`.trim();
       footer.innerHTML = '<div class="ai-edit-spacer"></div><button class="ai-edit-btn primary" data-action="close">Close</button>';
     },
     showCompleted(completedOptions) {
+      completedActions = completedOptions;
       footer.innerHTML = `
         <button class="ai-edit-btn secondary" data-action="copy">Copy</button>
         <div class="ai-edit-spacer"></div>
@@ -213,25 +343,25 @@ export function createStreamDialog(options) {
       footer.onclick = (event) => {
         const action = event.target?.dataset?.action;
         if (action === "copy") {
-          navigator.clipboard?.writeText(output.value).catch(() => {});
-          showToast("Copied to clipboard.", "success");
+          copyOutputAndClose();
         }
         if (action === "close") {
           api.close();
         }
         if (action === "confirm") {
-          completedOptions.onConfirm(output.value.trim());
+          runConfirm();
         }
       };
     },
     close() {
+      document.removeEventListener("keydown", onDialogKeyDown, true);
       closeOverlay(overlay);
     },
   };
 
   overlay.addEventListener("click", (event) => {
     const action = event.target?.dataset?.action;
-    if (event.target === overlay || action === "close") {
+    if (action === "close") {
       api.close();
     }
     if (action === "stop" && options.onStop) {

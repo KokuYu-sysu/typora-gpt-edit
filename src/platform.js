@@ -34,6 +34,8 @@ function dedupePaths(paths) {
   return output;
 }
 
+const CHATGPT_OAUTH_LOGIN_URL = "https://chatgpt.com/auth/login";
+
 export function getTokenCandidatePathsFromEnv(settings, env) {
   const paths = [];
   if (settings && settings.oauthTokenPath) {
@@ -143,6 +145,36 @@ function getNodeModule(name) {
   return null;
 }
 
+function normalizeForFs(filePath) {
+  return String(filePath || "").replace(/\//g, "\\");
+}
+
+function resolveUserInfoPath(settings, status) {
+  if (settings && settings.oauthUserInfoPath && String(settings.oauthUserInfoPath).trim()) {
+    return String(settings.oauthUserInfoPath).trim();
+  }
+
+  if (status && status.sourcePath) {
+    const pathModule = getNodeModule("path");
+    if (pathModule && typeof pathModule.dirname === "function") {
+      return joinPath(pathModule.dirname(status.sourcePath), "codex-user-info.json");
+    }
+    return `${status.sourcePath}.user.json`;
+  }
+
+  const appData = getEnvValue(null, "APPDATA");
+  if (appData) {
+    return joinPath(appData, "oauth-cli-kit", "auth", "codex-user-info.json");
+  }
+
+  const home = getEnvValue(null, "USERPROFILE") || getEnvValue(null, "HOME");
+  if (home) {
+    return joinPath(home, ".codex", "codex-user-info.json");
+  }
+
+  return "codex-user-info.json";
+}
+
 export function readFileText(filePath) {
   const fs = getNodeModule("fs");
   if (!fs || !filePath) {
@@ -227,4 +259,89 @@ export function getOAuthStatus(settings) {
 export function readToken(settings) {
   const status = getOAuthStatus(settings);
   return status.ok ? status.token : null;
+}
+
+export function openOauthLoginPage() {
+  try {
+    const electron = getNodeModule("electron");
+    if (electron && electron.shell && typeof electron.shell.openExternal === "function") {
+      electron.shell.openExternal(CHATGPT_OAUTH_LOGIN_URL);
+      return true;
+    }
+  } catch (_) {}
+
+  try {
+    if (typeof window !== "undefined" && typeof window.open === "function") {
+      window.open(CHATGPT_OAUTH_LOGIN_URL, "_blank", "noopener");
+      return true;
+    }
+  } catch (_) {}
+
+  try {
+    const childProcess = getNodeModule("child_process");
+    if (childProcess && typeof childProcess.exec === "function") {
+      childProcess.exec(`start "" "${CHATGPT_OAUTH_LOGIN_URL}"`);
+      return true;
+    }
+  } catch (_) {}
+
+  return false;
+}
+
+async function fetchUserInfoByEndpoint(token, endpoint) {
+  const response = await fetch(endpoint, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token.access}`,
+      "chatgpt-account-id": token.account_id,
+      accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const err = await response.text().catch(() => "");
+    throw new Error(`${response.status} ${err.slice(0, 120)}`.trim());
+  }
+
+  return response.json();
+}
+
+export async function downloadOAuthUserInfo(settings) {
+  const status = getOAuthStatus(settings);
+  if (!status.ok || !status.token) {
+    throw new Error("OAuth token unavailable. Please login first.");
+  }
+
+  const endpoints = [
+    "https://chatgpt.com/backend-api/accounts/check/v4-2023-04-27",
+    "https://chatgpt.com/backend-api/me",
+  ];
+
+  let payload = null;
+  let lastError = null;
+  for (const endpoint of endpoints) {
+    try {
+      payload = await fetchUserInfoByEndpoint(status.token, endpoint);
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (!payload) {
+    throw new Error(lastError?.message || "Failed to download user info.");
+  }
+
+  const fs = getNodeModule("fs");
+  const pathModule = getNodeModule("path");
+  if (!fs || !pathModule) {
+    throw new Error("Node fs/path is unavailable in this environment.");
+  }
+
+  const outputPath = resolveUserInfoPath(settings, status);
+  const fsPath = normalizeForFs(outputPath);
+  fs.mkdirSync(pathModule.dirname(fsPath), { recursive: true });
+  fs.writeFileSync(fsPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+
+  return outputPath;
 }

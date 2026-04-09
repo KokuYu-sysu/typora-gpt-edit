@@ -6,6 +6,20 @@ import { EditorSelectionController } from "./editor.js";
 import { AiEditSettingTab } from "./settings-tab.js";
 import { ensureStyles, removeStyles, showToast, openContextMenu, closeContextMenu, promptForText, createStreamDialog, closeAnyDialog } from "./ui.js";
 
+function matchesFixedShortcut(event, shortcut) {
+  if (!event || !event.key) {
+    return false;
+  }
+
+  return (
+    String(event.key).toLowerCase() === String(shortcut.key || "").toLowerCase()
+    && !!event.ctrlKey === !!shortcut.ctrlKey
+    && !!event.shiftKey === !!shortcut.shiftKey
+    && !!event.altKey === !!shortcut.altKey
+    && !!event.metaKey === !!shortcut.metaKey
+  );
+}
+
 export default class AiEditPlugin extends Plugin {
   constructor() {
     super(...arguments);
@@ -23,7 +37,7 @@ export default class AiEditPlugin extends Plugin {
     ensureStyles();
     document.addEventListener("contextmenu", this.handleContextMenu, true);
     document.addEventListener("keydown", this.handleKeyDown, true);
-    new Notice("AI Edit loaded. Select text and right-click to revise, or press Ctrl+E for Q&A.");
+    new Notice("AI Edit loaded. Shortcuts: Ctrl+E (Q&A), Ctrl+R (optimize), Ctrl+Shift+R (optimize with context).");
   }
 
   onunload() {
@@ -40,6 +54,7 @@ export default class AiEditPlugin extends Plugin {
       provider: this.settings.get("provider"),
       model: this.settings.get("model"),
       oauthTokenPath: this.settings.get("oauthTokenPath"),
+      oauthUserInfoPath: this.settings.get("oauthUserInfoPath"),
       openaiCompat: this.settings.get("openaiCompat"),
       shortcut: this.settings.get("shortcut"),
       prompts: this.settings.get("prompts"),
@@ -51,6 +66,7 @@ export default class AiEditPlugin extends Plugin {
     this.settings.set("provider", next.provider);
     this.settings.set("model", next.model);
     this.settings.set("oauthTokenPath", next.oauthTokenPath);
+    this.settings.set("oauthUserInfoPath", next.oauthUserInfoPath);
     this.settings.set("openaiCompat", next.openaiCompat);
     this.settings.set("shortcut", next.shortcut);
     this.settings.set("prompts", next.prompts);
@@ -73,8 +89,21 @@ export default class AiEditPlugin extends Plugin {
       x: event.clientX,
       y: event.clientY,
       items: [
-        { label: "AI Optimize Selection", value: "optimize" },
-        { label: "AI Optimize (With Context)", value: "optimize_with_context" },
+        {
+          label: "AI Optimize (Selection Only)",
+          description: "Only improve the selected text itself.",
+          value: "optimize",
+        },
+        {
+          label: "AI Optimize (Use Full Document Context)",
+          description: "Improve selection with full-document consistency.",
+          value: "optimize_with_context",
+        },
+        {
+          label: "AI Q&A",
+          description: "Ask a writing question and insert the answer.",
+          value: "qa",
+        },
       ],
       onSelect: (value) => {
         if (value === "optimize") {
@@ -83,26 +112,42 @@ export default class AiEditPlugin extends Plugin {
         if (value === "optimize_with_context") {
           this.openOptimizeFlow(true);
         }
+        if (value === "qa") {
+          this.editorSelection.captureInsertionTarget();
+          this.openQaFlow();
+        }
       },
     });
   }
 
   handleKeyDown(event) {
-    const settings = this.getSettings();
-    if (!shortcutMatches(event, settings.shortcut)) {
-      return;
-    }
     if (!this.editorSelection.isEditorTarget(event.target)) {
       return;
     }
-    if (this.editorSelection.getSelectedText().trim()) {
+    const settings = this.getSettings();
+
+    if (shortcutMatches(event, settings.shortcut)) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.editorSelection.captureInsertionTarget();
+      this.openQaFlow();
       return;
     }
 
-    event.preventDefault();
-    event.stopPropagation();
-    this.editorSelection.captureInsertionTarget();
-    this.openQaFlow();
+    if (matchesFixedShortcut(event, { key: "r", ctrlKey: true, shiftKey: false, altKey: false, metaKey: false })) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.editorSelection.captureSelection();
+      this.openOptimizeFlow(false);
+      return;
+    }
+
+    if (matchesFixedShortcut(event, { key: "r", ctrlKey: true, shiftKey: true, altKey: false, metaKey: false })) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.editorSelection.captureSelection();
+      this.openOptimizeFlow(true);
+    }
   }
 
   async openOptimizeFlow(withContext) {

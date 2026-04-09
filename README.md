@@ -14,12 +14,14 @@ This Windows port focuses on a stable writing workflow:
 
 Included: 
 
-- `AI Optimize Selection`
-- `AI Optimize (With Context)`
+- `AI Optimize (With Selection only)`
+- `AI Optimize (With Full Context)`
 - `AI Q&A` via `Ctrl + E`
 - settings page inside Typora Community Plugins
+- Select the model supported
 - Windows OAuth token auto-detection
 - OpenAI-compatible API mode
+- Now the response window can be dragged (2026/4/9)
 
 ## Requirements
 
@@ -75,6 +77,10 @@ Open `Ctrl + .` -> `Community Plugins` -> `AI Edit`.
 
 This mode reads an existing OAuth token file from your local machine.
 
+OR
+
+Click `OAuth Login`and `Download user Info` to connect OpenAI and Typora
+
 Auto-detect order:
 
 ```text
@@ -115,7 +121,7 @@ And it will return the revise suggestion, click `Replace` to do that:
 ### Ask writing questions
 
 1. Place the cursor in the editor without selecting text
-2. Press `Ctrl + E`
+2. Press `Ctrl + E`OR Right click in the menu to find `AI Q&A`
 3. Enter your question
 4. Optionally type `YES` to include the full document as context
 
@@ -129,6 +135,16 @@ The answer can then be inserted into the document.
 - `Ctrl + E` only triggers when no text is selected.
 - Default prompts are optimized for academic writing.
 - Chinese and English default prompts are chosen from the browser locale.
+
+## Shortcut Key
+
+| Shortcut Key       | Function                                     |
+| ------------------ | -------------------------------------------- |
+| `Ctrl + E`         | `AI Q&A`when no text is selected             |
+| `Ctrl + R`         | `AI Optimize (Selection Only)`               |
+| `Ctrl + Shift + R` | `AI Optimize (With context)`                 |
+| `Ctrl + C`         | `Copy`content in the output window and close |
+| `Ctrl + Enter`     | `Replace/Insert`with the response            |
 
 ## Development notes
 

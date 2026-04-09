@@ -1,7 +1,17 @@
-﻿const { SettingTab, Notice } = window[Symbol.for("typora-plugin-core@v2")];
+const { SettingTab, Notice } = window[Symbol.for("typora-plugin-core@v2")];
 
-import { formatShortcut } from "./config.js";
-import { getOAuthStatus } from "./platform.js";
+import {
+  CHATGPT_MODEL_PRESETS,
+  OPENAI_COMPAT_MODEL_PRESETS,
+  formatShortcut,
+} from "./config.js";
+import {
+  downloadOAuthUserInfo,
+  getOAuthStatus,
+  openOauthLoginPage,
+} from "./platform.js";
+
+const CUSTOM_MODEL_VALUE = "__custom__";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -9,6 +19,43 @@ function escapeHtml(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function getModelUiState(value, presets) {
+  const normalized = String(value || "").trim();
+  if (normalized && presets.includes(normalized)) {
+    return { preset: normalized, custom: "" };
+  }
+  return {
+    preset: CUSTOM_MODEL_VALUE,
+    custom: normalized,
+  };
+}
+
+function createModelOptions(presets, selectedValue) {
+  const options = presets.map((preset) => {
+    const selected = selectedValue === preset ? "selected" : "";
+    return `<option value="${escapeHtml(preset)}" ${selected}>${escapeHtml(preset)}</option>`;
+  });
+  options.push(`<option value="${CUSTOM_MODEL_VALUE}" ${selectedValue === CUSTOM_MODEL_VALUE ? "selected" : ""}>Custom...</option>`);
+  return options.join("");
+}
+
+function toggleCustomModelInput(container, selectId, inputId) {
+  const select = container.querySelector(`#${selectId}`);
+  const input = container.querySelector(`#${inputId}`);
+  if (!select || !input) {
+    return;
+  }
+  input.style.display = select.value === CUSTOM_MODEL_VALUE ? "block" : "none";
+}
+
+function readModelValue(container, selectId, inputId) {
+  const presetValue = container.querySelector(`#${selectId}`)?.value || "";
+  if (presetValue === CUSTOM_MODEL_VALUE) {
+    return container.querySelector(`#${inputId}`)?.value.trim() || "";
+  }
+  return presetValue.trim();
 }
 
 export class AiEditSettingTab extends SettingTab {
@@ -28,6 +75,8 @@ export class AiEditSettingTab extends SettingTab {
   render() {
     const settings = this.plugin.getSettings();
     const status = getOAuthStatus(settings);
+    const chatgptModel = getModelUiState(settings.model, CHATGPT_MODEL_PRESETS);
+    const compatModel = getModelUiState(settings.openaiCompat.model, OPENAI_COMPAT_MODEL_PRESETS);
     const container = this.containerEl || this.contentEl || this.tabContentEl;
     if (container.empty) {
       container.empty();
@@ -37,7 +86,7 @@ export class AiEditSettingTab extends SettingTab {
 
     container.innerHTML = `
       <h2>AI Edit</h2>
-      <p class="ai-edit-setting-note">Use ${escapeHtml(formatShortcut(settings.shortcut))} for AI Q&amp;A. Selection rewrite is available from the editor right-click menu.</p>
+      <p class="ai-edit-setting-note">Shortcuts: Q&amp;A ${escapeHtml(formatShortcut(settings.shortcut))}, Optimize Selection Ctrl+R, Optimize With Context Ctrl+Shift+R, Result Confirm Ctrl+Enter, Result Copy+Close Ctrl+C.</p>
       <div class="ai-edit-setting-grid">
         <div>
           <label for="ai-edit-provider">Provider</label>
@@ -47,14 +96,24 @@ export class AiEditSettingTab extends SettingTab {
           </select>
         </div>
         <div>
-          <label for="ai-edit-model">ChatGPT Model</label>
-          <input id="ai-edit-model" type="text" value="${escapeHtml(settings.model)}" />
+          <label for="ai-edit-model-preset">ChatGPT Model</label>
+          <select id="ai-edit-model-preset">
+            ${createModelOptions(CHATGPT_MODEL_PRESETS, chatgptModel.preset)}
+          </select>
+          <input id="ai-edit-model-custom" type="text" placeholder="Type model id" value="${escapeHtml(chatgptModel.custom)}" style="margin-top: 6px; ${chatgptModel.preset === CUSTOM_MODEL_VALUE ? "" : "display: none;"}" />
         </div>
         <div>
           <label for="ai-edit-oauth-path">OAuth Token File Path</label>
           <input id="ai-edit-oauth-path" type="text" value="${escapeHtml(settings.oauthTokenPath || "")}" />
+          <label for="ai-edit-oauth-user-path" style="margin-top: 6px;">OAuth User Info Path</label>
+          <input id="ai-edit-oauth-user-path" type="text" value="${escapeHtml(settings.oauthUserInfoPath || "")}" />
           <div class="ai-edit-setting-note">Auto-detect order: %APPDATA%/oauth-cli-kit/auth/codex.json, %LOCALAPPDATA%/oauth-cli-kit/auth/codex.json, %USERPROFILE%/.codex/auth.json</div>
           <div class="ai-edit-setting-status ${status.ok ? "ok" : "bad"}">${escapeHtml(status.ok ? `Connected (${status.sourcePath})` : status.message)}</div>
+          <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="ai-edit-btn secondary" id="ai-edit-oauth-login">OAuth Login</button>
+            <button class="ai-edit-btn secondary" id="ai-edit-oauth-download">Download User Info</button>
+            <button class="ai-edit-btn secondary" id="ai-edit-oauth-refresh">Refresh OAuth Status</button>
+          </div>
         </div>
         <div>
           <label for="ai-edit-compat-url">OpenAI Compatible Base URL</label>
@@ -65,8 +124,11 @@ export class AiEditSettingTab extends SettingTab {
           <input id="ai-edit-compat-key" type="password" value="${escapeHtml(settings.openaiCompat.apiKey || "")}" />
         </div>
         <div>
-          <label for="ai-edit-compat-model">OpenAI Compatible Model</label>
-          <input id="ai-edit-compat-model" type="text" value="${escapeHtml(settings.openaiCompat.model || "")}" />
+          <label for="ai-edit-compat-model-preset">OpenAI Compatible Model</label>
+          <select id="ai-edit-compat-model-preset">
+            ${createModelOptions(OPENAI_COMPAT_MODEL_PRESETS, compatModel.preset)}
+          </select>
+          <input id="ai-edit-compat-model-custom" type="text" placeholder="Type model id" value="${escapeHtml(compatModel.custom)}" style="margin-top: 6px; ${compatModel.preset === CUSTOM_MODEL_VALUE ? "" : "display: none;"}" />
         </div>
         <div>
           <label for="ai-edit-optimize-system">Optimize System Prompt</label>
@@ -106,15 +168,71 @@ export class AiEditSettingTab extends SettingTab {
       </div>
     `;
 
-    container.querySelector("#ai-edit-save-settings").addEventListener("click", () => {
+    container.querySelector("#ai-edit-model-preset").addEventListener("change", () => {
+      toggleCustomModelInput(container, "ai-edit-model-preset", "ai-edit-model-custom");
+    });
+    container.querySelector("#ai-edit-compat-model-preset").addEventListener("change", () => {
+      toggleCustomModelInput(container, "ai-edit-compat-model-preset", "ai-edit-compat-model-custom");
+    });
+
+    container.querySelector("#ai-edit-oauth-login").addEventListener("click", () => {
+      const opened = openOauthLoginPage();
+      if (opened) {
+        new Notice("Opened ChatGPT login page. Finish login, then click Refresh OAuth Status.");
+      } else {
+        new Notice("Failed to open login page automatically. Please open https://chatgpt.com/auth/login manually.");
+      }
+    });
+
+    container.querySelector("#ai-edit-oauth-refresh").addEventListener("click", () => {
+      this.render();
+      new Notice("OAuth status refreshed.");
+    });
+
+    container.querySelector("#ai-edit-oauth-download").addEventListener("click", async () => {
+      const oauthTokenPath = container.querySelector("#ai-edit-oauth-path").value.trim();
+      const oauthUserInfoPath = container.querySelector("#ai-edit-oauth-user-path").value.trim();
+
       this.plugin.saveSettings({
-        provider: container.querySelector("#ai-edit-provider").value,
-        model: container.querySelector("#ai-edit-model").value.trim(),
+        oauthTokenPath,
+        oauthUserInfoPath,
+      });
+
+      try {
+        const outputPath = await downloadOAuthUserInfo(this.plugin.getSettings());
+        this.plugin.saveSettings({
+          oauthTokenPath,
+          oauthUserInfoPath,
+        });
+        this.render();
+        new Notice(`OAuth user info saved: ${outputPath}`);
+      } catch (error) {
+        new Notice(`Download failed: ${error?.message || "Unknown error"}`);
+      }
+    });
+
+    container.querySelector("#ai-edit-save-settings").addEventListener("click", () => {
+      const provider = container.querySelector("#ai-edit-provider").value;
+      const model = readModelValue(container, "ai-edit-model-preset", "ai-edit-model-custom");
+      const compatModelValue = readModelValue(container, "ai-edit-compat-model-preset", "ai-edit-compat-model-custom");
+      if (provider === "chatgpt" && !model) {
+        new Notice("ChatGPT model cannot be empty.");
+        return;
+      }
+      if (provider === "openai_compat" && !compatModelValue) {
+        new Notice("OpenAI compatible model cannot be empty.");
+        return;
+      }
+
+      this.plugin.saveSettings({
+        provider,
+        model: model || settings.model || CHATGPT_MODEL_PRESETS[0],
         oauthTokenPath: container.querySelector("#ai-edit-oauth-path").value.trim(),
+        oauthUserInfoPath: container.querySelector("#ai-edit-oauth-user-path").value.trim(),
         openaiCompat: {
           baseUrl: container.querySelector("#ai-edit-compat-url").value.trim(),
           apiKey: container.querySelector("#ai-edit-compat-key").value.trim(),
-          model: container.querySelector("#ai-edit-compat-model").value.trim(),
+          model: compatModelValue || settings.openaiCompat.model || OPENAI_COMPAT_MODEL_PRESETS[0],
         },
         prompts: {
           optimize: {
