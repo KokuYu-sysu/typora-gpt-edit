@@ -1,9 +1,11 @@
 {
   "id": "ai-edit",
-  "name": "AI Edit",
+  "name": "AI Edit with OpenAI",
   "description": "Writing assistance for Typora with ChatGPT OAuth or OpenAI-compatible APIs",
-  "author": "OpenAI",
-  "version": "0.1.0",
+  "author": "KokuYu & OpenAI",
+  "authorUrl":"https://github.com/KokuYu-sysu",
+  "repo": "typora-gpt-edit",
+  "version": "1.1.0",
   "minAppVersion": "1.5.0",
   "minCoreVersion": "2.7.1",
   "platforms": ["win32"]

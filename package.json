@@ -1,9 +1,9 @@
 ﻿{
   "name": "typora-plugin-ai-edit",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "type": "module",
   "description": "Typing assistance plugin for Typora on Windows",
-  "author": "OpenAI",
+  "author": "KokuYu & OpenAI",
   "main": "main.js",
   "scripts": {
     "build": "echo AI Edit plugin does not require a build step"
