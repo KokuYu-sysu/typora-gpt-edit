@@ -19,6 +19,9 @@ Included:
 - `AI Q&A` via `Ctrl + E`
 - settings page inside Typora Community Plugins
 - Select the model supported
+
+![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/main/asset/Modelselect.png?raw=true)
+
 - Windows OAuth token auto-detection
 - OpenAI-compatible API mode
 - Now the response window can be dragged (2026/4/9)
@@ -67,7 +70,7 @@ After restarting Typora:
 2. Open `Community Plugins`
 3. Enable `AI Edit`
 
-![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/854981fa4574014331d19f3da39d7ffeb7f8720e/asset/overview.png?raw=true)
+![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/main/asset/overview.png?raw=true)
 
 ## Configuration
 
@@ -113,7 +116,7 @@ You can point it to OpenAI-compatible gateways or self-hosted backends.
 
 The plugin will show a result dialog. You can confirm to replace the selection.
 
-![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/854981fa4574014331d19f3da39d7ffeb7f8720e/asset/rightclick.png?raw=true)
+![](![rightclick.png](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/main/asset/rightclick.png?raw=true)
 
 And it will return the revise suggestion, click `Replace` to do that:
 ![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/854981fa4574014331d19f3da39d7ffeb7f8720e/asset/Revisement.png?raw=true)
