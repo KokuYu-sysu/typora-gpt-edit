@@ -7,8 +7,10 @@ import {
 } from "./config.js";
 import {
   downloadOAuthUserInfo,
+  exportPromptSettingsToFile,
   getOAuthStatus,
-  openOauthLoginPage,
+  importPromptSettingsFromFile,
+  loginOpenAiOauthInteractive,
 } from "./platform.js";
 
 const CUSTOM_MODEL_VALUE = "__custom__";
@@ -108,11 +110,21 @@ export class AiEditSettingTab extends SettingTab {
           <label for="ai-edit-oauth-user-path" style="margin-top: 6px;">OAuth User Info Path</label>
           <input id="ai-edit-oauth-user-path" type="text" value="${escapeHtml(settings.oauthUserInfoPath || "")}" />
           <div class="ai-edit-setting-note">Auto-detect order: %APPDATA%/oauth-cli-kit/auth/codex.json, %LOCALAPPDATA%/oauth-cli-kit/auth/codex.json, %USERPROFILE%/.codex/auth.json</div>
+          <div class="ai-edit-setting-note">OAuth Login runs an OpenAI PKCE flow (oauth-cli-kit compatible).</div>
           <div class="ai-edit-setting-status ${status.ok ? "ok" : "bad"}">${escapeHtml(status.ok ? `Connected (${status.sourcePath})` : status.message)}</div>
           <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="ai-edit-btn secondary" id="ai-edit-oauth-login">OAuth Login</button>
             <button class="ai-edit-btn secondary" id="ai-edit-oauth-download">Download User Info</button>
             <button class="ai-edit-btn secondary" id="ai-edit-oauth-refresh">Refresh OAuth Status</button>
+          </div>
+        </div>
+        <div>
+          <label for="ai-edit-prompt-export-path">Setting JSON File Path</label>
+          <input id="ai-edit-prompt-export-path" type="text" value="${escapeHtml(settings.promptExportPath || "")}" />
+          <div class="ai-edit-setting-note">Export or import JSON.</div>
+          <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="ai-edit-btn secondary" id="ai-edit-export-prompts">Output Setting</button>
+            <button class="ai-edit-btn secondary" id="ai-edit-import-prompts">Import Setting</button>
           </div>
         </div>
         <div>
@@ -175,12 +187,25 @@ export class AiEditSettingTab extends SettingTab {
       toggleCustomModelInput(container, "ai-edit-compat-model-preset", "ai-edit-compat-model-custom");
     });
 
-    container.querySelector("#ai-edit-oauth-login").addEventListener("click", () => {
-      const opened = openOauthLoginPage();
-      if (opened) {
-        new Notice("Opened ChatGPT login page. Finish login, then click Refresh OAuth Status.");
-      } else {
-        new Notice("Failed to open login page automatically. Please open https://chatgpt.com/auth/login manually.");
+    container.querySelector("#ai-edit-oauth-login").addEventListener("click", async () => {
+      const oauthTokenPath = container.querySelector("#ai-edit-oauth-path").value.trim();
+      const oauthUserInfoPath = container.querySelector("#ai-edit-oauth-user-path").value.trim();
+      this.plugin.saveSettings({
+        oauthTokenPath,
+        oauthUserInfoPath,
+      });
+
+      new Notice("Starting OpenAI OAuth login in browser...");
+      try {
+        const result = await loginOpenAiOauthInteractive(this.plugin.getSettings());
+        this.plugin.saveSettings({
+          oauthTokenPath: oauthTokenPath || result.tokenPath,
+          oauthUserInfoPath,
+        });
+        this.render();
+        new Notice(`OAuth login successful. Token saved to: ${result.tokenPath}`);
+      } catch (error) {
+        new Notice(`OAuth login failed: ${error?.message || "Unknown error"}`);
       }
     });
 
@@ -211,6 +236,44 @@ export class AiEditSettingTab extends SettingTab {
       }
     });
 
+    container.querySelector("#ai-edit-export-prompts").addEventListener("click", () => {
+      const promptExportPath = container.querySelector("#ai-edit-prompt-export-path").value.trim();
+      this.plugin.saveSettings({
+        promptExportPath,
+      });
+
+      try {
+        const latestSettings = this.plugin.getSettings();
+        const outputPath = exportPromptSettingsToFile(latestSettings);
+        this.plugin.saveSettings({
+          promptExportPath: promptExportPath || outputPath,
+        });
+        this.render();
+        new Notice(`Output setting file saved: ${outputPath}`);
+      } catch (error) {
+        new Notice(`Output setting failed: ${error?.message || "Unknown error"}`);
+      }
+    });
+
+    container.querySelector("#ai-edit-import-prompts").addEventListener("click", () => {
+      const promptExportPath = container.querySelector("#ai-edit-prompt-export-path").value.trim();
+      this.plugin.saveSettings({
+        promptExportPath,
+      });
+
+      try {
+        const imported = importPromptSettingsFromFile(this.plugin.getSettings());
+        this.plugin.saveSettings({
+          promptExportPath: promptExportPath || imported.inputPath,
+          prompts: imported.prompts,
+        });
+        this.render();
+        new Notice(`Imported prompts from: ${imported.inputPath}`);
+      } catch (error) {
+        new Notice(`Import setting failed: ${error?.message || "Unknown error"}`);
+      }
+    });
+
     container.querySelector("#ai-edit-save-settings").addEventListener("click", () => {
       const provider = container.querySelector("#ai-edit-provider").value;
       const model = readModelValue(container, "ai-edit-model-preset", "ai-edit-model-custom");
@@ -229,6 +292,7 @@ export class AiEditSettingTab extends SettingTab {
         model: model || settings.model || CHATGPT_MODEL_PRESETS[0],
         oauthTokenPath: container.querySelector("#ai-edit-oauth-path").value.trim(),
         oauthUserInfoPath: container.querySelector("#ai-edit-oauth-user-path").value.trim(),
+        promptExportPath: container.querySelector("#ai-edit-prompt-export-path").value.trim(),
         openaiCompat: {
           baseUrl: container.querySelector("#ai-edit-compat-url").value.trim(),
           apiKey: container.querySelector("#ai-edit-compat-key").value.trim(),

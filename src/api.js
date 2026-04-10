@@ -1,4 +1,4 @@
-﻿import { readToken } from "./platform.js";
+import { getFreshToken } from "./platform.js";
 
 const CODEX_URL = "https://chatgpt.com/backend-api/codex/responses";
 let currentAbortController = null;
@@ -96,7 +96,7 @@ async function parseOpenAiSse(response, onChunk) {
 }
 
 async function callChatGptOauthApi(systemPrompt, userPrompt, settings, handlers) {
-  const token = readToken(settings);
+  const token = await getFreshToken(settings);
   if (!token) {
     throw new Error("OAuth token unavailable.");
   }

@@ -64,6 +64,7 @@ export const DEFAULT_SETTINGS = {
   model: "gpt-5.4",
   oauthTokenPath: "",
   oauthUserInfoPath: "",
+  promptExportPath: "",
   openaiCompat: {
     baseUrl: "",
     apiKey: "",

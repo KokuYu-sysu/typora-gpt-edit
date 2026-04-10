@@ -186,6 +186,12 @@ Place that folder inside their Typora community plugin `plugins` directory.
 
 In developing and implementing this project, I used another project, https://github.com/Aurisper/typora-ai-edit, as a reference and made revisions based on it. Therefore, I would like to express my sincere thanks to its contributor.
 
+## Updated history
+
+- - Version 0.1.0: Initial release
+- 1.1.0 version: Updated operation logic, added shortcut, optimized expression, added login button
+- Version 1.2.0: Fixed login-related issues and added prompt import/export support for easier migration.
+
 ## License
 
 MIT
