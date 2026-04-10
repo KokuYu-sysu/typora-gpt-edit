@@ -188,8 +188,8 @@ In developing and implementing this project, I used another project, https://git
 
 ## Updated history
 
-- - Version 0.1.0: Initial release
-- 1.1.0 version: Updated operation logic, added shortcut, optimized expression, added login button
+- Version 0.1.0: Initial release
+- Version 1.1.0 : Updated operation logic, added shortcut, optimized expression, added login button
 - Version 1.2.0: Fixed login-related issues and added prompt import/export support for easier migration.
 
 ## License
