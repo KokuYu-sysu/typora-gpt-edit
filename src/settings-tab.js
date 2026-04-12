@@ -142,6 +142,51 @@ export class AiEditSettingTab extends SettingTab {
           </select>
           <input id="ai-edit-compat-model-custom" type="text" placeholder="Type model id" value="${escapeHtml(compatModel.custom)}" style="margin-top: 6px; ${compatModel.preset === CUSTOM_MODEL_VALUE ? "" : "display: none;"}" />
         </div>
+        <div class="ai-edit-setting-card">
+          <div class="ai-edit-setting-card-title">OpenAI Compatible Failover</div>
+          <div class="ai-edit-toggle-row">
+            <div class="ai-edit-toggle-row-text">Enable automatic fallback to backup API connections</div>
+            <label class="ai-edit-toggle-control" for="ai-edit-compat-failover-enabled">
+              <input id="ai-edit-compat-failover-enabled" type="checkbox" ${settings.openaiCompatFailoverEnabled ? "checked" : ""} />
+              Enabled
+            </label>
+          </div>
+          <div style="margin-top: 8px;">
+            <label for="ai-edit-compat-preferred-connection">Active OpenAI-Compatible Connection</label>
+            <select id="ai-edit-compat-preferred-connection">
+              <option value="primary" ${settings.openaiCompatPreferredConnection === "primary" ? "selected" : ""}>Primary API</option>
+              <option value="backup_1" ${settings.openaiCompatPreferredConnection === "backup_1" ? "selected" : ""}>Backup API 1</option>
+              <option value="backup_2" ${settings.openaiCompatPreferredConnection === "backup_2" ? "selected" : ""}>Backup API 2</option>
+            </select>
+            <div class="ai-edit-setting-card-note">Set this to Backup API 1/2 to directly use providers like DeepSeek during normal use.</div>
+          </div>
+          <div class="ai-edit-setting-subgrid">
+            <div>
+              <label for="ai-edit-compat-backup1-url">Backup API 1 Base URL</label>
+              <input id="ai-edit-compat-backup1-url" type="text" value="${escapeHtml(settings.openaiCompatBackups?.[0]?.baseUrl || "")}" />
+            </div>
+            <div>
+              <label for="ai-edit-compat-backup1-key">Backup API 1 API Key</label>
+              <input id="ai-edit-compat-backup1-key" type="password" value="${escapeHtml(settings.openaiCompatBackups?.[0]?.apiKey || "")}" />
+            </div>
+            <div>
+              <label for="ai-edit-compat-backup1-model">Backup API 1 Model</label>
+              <input id="ai-edit-compat-backup1-model" type="text" value="${escapeHtml(settings.openaiCompatBackups?.[0]?.model || "")}" placeholder="Optional, fallback to ChatGPT model when empty" />
+            </div>
+            <div>
+              <label for="ai-edit-compat-backup2-url">Backup API 2 Base URL</label>
+              <input id="ai-edit-compat-backup2-url" type="text" value="${escapeHtml(settings.openaiCompatBackups?.[1]?.baseUrl || "")}" />
+            </div>
+            <div>
+              <label for="ai-edit-compat-backup2-key">Backup API 2 API Key</label>
+              <input id="ai-edit-compat-backup2-key" type="password" value="${escapeHtml(settings.openaiCompatBackups?.[1]?.apiKey || "")}" />
+            </div>
+            <div>
+              <label for="ai-edit-compat-backup2-model">Backup API 2 Model</label>
+              <input id="ai-edit-compat-backup2-model" type="text" value="${escapeHtml(settings.openaiCompatBackups?.[1]?.model || "")}" placeholder="Optional, fallback to ChatGPT model when empty" />
+            </div>
+          </div>
+        </div>
         <div>
           <label for="ai-edit-optimize-system">Optimize System Prompt</label>
           <textarea id="ai-edit-optimize-system" rows="3">${escapeHtml(settings.prompts.optimize.system)}</textarea>
@@ -298,6 +343,22 @@ export class AiEditSettingTab extends SettingTab {
           apiKey: container.querySelector("#ai-edit-compat-key").value.trim(),
           model: compatModelValue || settings.openaiCompat.model || OPENAI_COMPAT_MODEL_PRESETS[0],
         },
+        openaiCompatFailoverEnabled: !!container.querySelector("#ai-edit-compat-failover-enabled").checked,
+        openaiCompatPreferredConnection: container.querySelector("#ai-edit-compat-preferred-connection").value,
+        openaiCompatBackups: [
+          {
+            name: "Backup 1",
+            baseUrl: container.querySelector("#ai-edit-compat-backup1-url").value.trim(),
+            apiKey: container.querySelector("#ai-edit-compat-backup1-key").value.trim(),
+            model: container.querySelector("#ai-edit-compat-backup1-model").value.trim(),
+          },
+          {
+            name: "Backup 2",
+            baseUrl: container.querySelector("#ai-edit-compat-backup2-url").value.trim(),
+            apiKey: container.querySelector("#ai-edit-compat-backup2-key").value.trim(),
+            model: container.querySelector("#ai-edit-compat-backup2-model").value.trim(),
+          },
+        ],
         prompts: {
           optimize: {
             system: container.querySelector("#ai-edit-optimize-system").value,

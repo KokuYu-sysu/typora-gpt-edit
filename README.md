@@ -1,6 +1,6 @@
-# typora-plugin-ai-edit
+# typora-ai-edit Plugin
 
-`typora-plugin-ai-edit` is a Typora Community Plugin for paper writing on Windows. It brings AI-assisted editing into Typora without modifying Typora's installation files.
+`typora-ai-edit / ai-edit (showing in Typora)` is a Typora Community Plugin for paper writing on Windows. It brings AI-assisted editing into Typora without modifying Typora's installation files.
 
 This Windows port focuses on a stable writing workflow:
 
@@ -24,7 +24,7 @@ Included:
 
 - Windows OAuth token auto-detection
 - OpenAI-compatible API mode
-- Now the response window can be dragged (2026/4/9)
+- Now the response window can be dragged (Version 1.2.0)
 
 ## Requirements
 
@@ -102,7 +102,9 @@ This mode uses:
 - `API Key`
 - `Model`
 
-You can point it to OpenAI-compatible gateways or self-hosted backends.
+You can point it to OpenAI-compatible gateways or self-hosted backends. Version 1.3.0 supports an alternative approach that enables the use of other OpenAI-compatible AI models, such as DeepSeek, and requires an `api_key` and `base_url`.
+
+![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/main/asset/AlterAPI.png?raw=true)
 
 ## Usage
 
@@ -116,7 +118,7 @@ You can point it to OpenAI-compatible gateways or self-hosted backends.
 
 The plugin will show a result dialog. You can confirm to replace the selection.
 
-![](![rightclick.png](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/main/asset/rightclick.png?raw=true)
+![rightclick.png](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/main/asset/rightclick.png?raw=true)
 
 And it will return the revise suggestion, click `Replace` to do that:
 ![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/854981fa4574014331d19f3da39d7ffeb7f8720e/asset/Revisement.png?raw=true)
@@ -160,16 +162,16 @@ Main files:
 - `src/api.js`
 - `src/settings-tab.js`
 - `src/config.js`
-
-Important implementation note:
-
-- `manifest.json` must be saved as UTF-8 **without BOM**. The Typora plugin framework parses it with `JSON.parse(...)`, and a BOM can prevent the plugin from being discovered.
+- `src/ui.js`
+- `test/api-failover.test.js`
+- `test/api-preferred-connection.test.js`
+- `test/platform.oauth.test`
+- `test/prompt-export.test`
 
 ## Known limitations
 
 - This project is currently tested for Windows-oriented community-plugin usage, for macOS: Please View: https://github.com/Aurisper/typora-ai-edit.
 - The plugin depends on Typora Community Plugin Framework internals.
-- ChatGPT OAuth support depends on the local token file format remaining compatible.
 - The default prompt is set as Chinese, for English or other language document should revise the prompt by user. And you can also revise the prompt to make it more suitable to you.
 
 ## Publish package
@@ -191,6 +193,7 @@ In developing and implementing this project, I used another project, https://git
 - Version 0.1.0: Initial release
 - Version 1.1.0 : Updated operation logic, added shortcut, optimized expression, added login button
 - Version 1.2.0: Fixed login-related issues and added prompt import/export support for easier migration.
+- Version 1.3.0: Support an OpenAI-compatible method for using typora-ai-edit plugin.
 
 ## License
 

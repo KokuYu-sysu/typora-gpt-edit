@@ -95,6 +95,67 @@ async function parseOpenAiSse(response, onChunk) {
   return result;
 }
 
+function normalizeCompatConfig(raw, fallbackModel, fallbackName, slot) {
+  const baseUrl = String(raw?.baseUrl || "").trim();
+  const apiKey = String(raw?.apiKey || "").trim();
+  const model = String(raw?.model || fallbackModel || "").trim();
+  const name = String(raw?.name || fallbackName || "").trim();
+  if (!baseUrl || !apiKey) {
+    return null;
+  }
+  return {
+    slot,
+    name: name || baseUrl,
+    baseUrl,
+    apiKey,
+    model,
+  };
+}
+
+function getCompatCandidates(settings) {
+  const candidates = [];
+  const primary = normalizeCompatConfig(settings?.openaiCompat || {}, settings?.model, "Primary", "primary");
+  if (primary) {
+    candidates.push(primary);
+  }
+
+  const backups = Array.isArray(settings?.openaiCompatBackups) ? settings.openaiCompatBackups : [];
+  for (let i = 0; i < backups.length; i += 1) {
+    const candidate = normalizeCompatConfig(backups[i], settings?.model, `Backup ${i + 1}`, `backup_${i + 1}`);
+    if (candidate) {
+      candidates.push(candidate);
+    }
+  }
+
+  const deduped = [];
+  const seen = new Set();
+  for (const item of candidates) {
+    const key = `${item.baseUrl.toLowerCase()}|${item.apiKey}|${item.model}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push(item);
+  }
+  if (!deduped.length) {
+    return deduped;
+  }
+
+  const preferred = String(settings?.openaiCompatPreferredConnection || "primary");
+  const preferredIndex = deduped.findIndex((item) => item.slot === preferred);
+  if (preferredIndex <= 0) {
+    return deduped;
+  }
+
+  const ordered = [deduped[preferredIndex]];
+  for (let i = 0; i < deduped.length; i += 1) {
+    if (i !== preferredIndex) {
+      ordered.push(deduped[i]);
+    }
+  }
+  return ordered;
+}
+
 async function callChatGptOauthApi(systemPrompt, userPrompt, settings, handlers) {
   const token = await getFreshToken(settings);
   if (!token) {
@@ -139,14 +200,9 @@ async function callChatGptOauthApi(systemPrompt, userPrompt, settings, handlers)
   return parseCodexSse(response, handlers?.onChunk);
 }
 
-async function callOpenAiCompatApi(systemPrompt, userPrompt, settings, handlers) {
-  const compat = settings.openaiCompat || {};
-  if (!compat.baseUrl || !compat.apiKey) {
-    throw new Error("OpenAI compatible API is not configured.");
-  }
-
+async function callOpenAiCompatApi(systemPrompt, userPrompt, compat, handlers) {
   currentAbortController = new AbortController();
-  const response = await fetch(`${compat.baseUrl.replace(/\/+$/g, "")}/chat/completions`, {
+  const response = await fetch(`${String(compat.baseUrl).replace(/\/+$/g, "")}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${compat.apiKey}`,
@@ -154,7 +210,7 @@ async function callOpenAiCompatApi(systemPrompt, userPrompt, settings, handlers)
       accept: "text/event-stream",
     },
     body: JSON.stringify({
-      model: compat.model || settings.model,
+      model: compat.model,
       stream: true,
       messages: [
         { role: "system", content: systemPrompt },
@@ -172,10 +228,36 @@ async function callOpenAiCompatApi(systemPrompt, userPrompt, settings, handlers)
   return parseOpenAiSse(response, handlers?.onChunk);
 }
 
+async function callOpenAiCompatApiWithFailover(systemPrompt, userPrompt, settings, handlers) {
+  const candidates = getCompatCandidates(settings);
+  if (!candidates.length) {
+    throw new Error("OpenAI compatible API is not configured.");
+  }
+
+  const failoverEnabled = settings?.openaiCompatFailoverEnabled !== false;
+  const failures = [];
+  for (let i = 0; i < candidates.length; i += 1) {
+    const candidate = candidates[i];
+    try {
+      return await callOpenAiCompatApi(systemPrompt, userPrompt, candidate, handlers);
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        throw error;
+      }
+      failures.push(`${candidate.name}: ${error?.message || "Unknown error"}`);
+      if (!failoverEnabled || i === candidates.length - 1) {
+        break;
+      }
+    }
+  }
+
+  throw new Error(`All OpenAI compatible connections failed. ${failures.join(" | ")}`.trim());
+}
+
 export async function callAi(systemPrompt, userPrompt, settings, handlers = {}) {
   try {
     if (settings.provider === "openai_compat") {
-      return await callOpenAiCompatApi(systemPrompt, userPrompt, settings, handlers);
+      return await callOpenAiCompatApiWithFailover(systemPrompt, userPrompt, settings, handlers);
     }
     return await callChatGptOauthApi(systemPrompt, userPrompt, settings, handlers);
   } finally {

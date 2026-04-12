@@ -39,7 +39,15 @@ export function ensureStyles() {
     .ai-edit-btn.danger { background: #dc2626; color: #fff; }
     .ai-edit-setting-grid { display: grid; gap: 10px; margin-top: 12px; }
     .ai-edit-setting-grid label { display: block; font-size: 12px; color: #374151; margin-bottom: 4px; }
-    .ai-edit-setting-grid input, .ai-edit-setting-grid select, .ai-edit-setting-grid textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; }
+    .ai-edit-setting-grid input:not([type="checkbox"]), .ai-edit-setting-grid select, .ai-edit-setting-grid textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; }
+    .ai-edit-setting-grid input[type="checkbox"] { width: 16px; height: 16px; margin: 0; padding: 0; }
+    .ai-edit-setting-card { padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f8fafc; }
+    .ai-edit-setting-card-title { font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 8px; }
+    .ai-edit-setting-card-note { margin-top: 6px; font-size: 12px; color: #6b7280; }
+    .ai-edit-setting-subgrid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 8px; }
+    .ai-edit-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .ai-edit-toggle-row-text { font-size: 13px; color: #374151; line-height: 1.35; }
+    .ai-edit-toggle-control { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 0 !important; font-size: 12px; color: #374151; white-space: nowrap; }
     .ai-edit-setting-note { margin-top: 8px; font-size: 12px; color: #6b7280; }
     .ai-edit-setting-status.ok { color: #15803d; }
     .ai-edit-setting-status.bad { color: #dc2626; }

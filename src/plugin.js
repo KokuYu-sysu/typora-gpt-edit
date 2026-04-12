@@ -56,6 +56,9 @@ export default class AiEditPlugin extends Plugin {
       oauthTokenPath: this.settings.get("oauthTokenPath"),
       oauthUserInfoPath: this.settings.get("oauthUserInfoPath"),
       promptExportPath: this.settings.get("promptExportPath"),
+      openaiCompatFailoverEnabled: this.settings.get("openaiCompatFailoverEnabled"),
+      openaiCompatPreferredConnection: this.settings.get("openaiCompatPreferredConnection"),
+      openaiCompatBackups: this.settings.get("openaiCompatBackups"),
       openaiCompat: this.settings.get("openaiCompat"),
       shortcut: this.settings.get("shortcut"),
       prompts: this.settings.get("prompts"),
@@ -69,6 +72,9 @@ export default class AiEditPlugin extends Plugin {
     this.settings.set("oauthTokenPath", next.oauthTokenPath);
     this.settings.set("oauthUserInfoPath", next.oauthUserInfoPath);
     this.settings.set("promptExportPath", next.promptExportPath);
+    this.settings.set("openaiCompatFailoverEnabled", next.openaiCompatFailoverEnabled);
+    this.settings.set("openaiCompatPreferredConnection", next.openaiCompatPreferredConnection);
+    this.settings.set("openaiCompatBackups", next.openaiCompatBackups);
     this.settings.set("openaiCompat", next.openaiCompat);
     this.settings.set("shortcut", next.shortcut);
     this.settings.set("prompts", next.prompts);

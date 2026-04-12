@@ -17,6 +17,18 @@ export const OPENAI_COMPAT_MODEL_PRESETS = [
   "gpt-4o-mini",
 ];
 
+function normalizeCompatBackups(rawBackups) {
+  if (!Array.isArray(rawBackups)) {
+    return [];
+  }
+  return rawBackups.map((item) => ({
+    name: String(item?.name || "").trim(),
+    baseUrl: String(item?.baseUrl || "").trim(),
+    apiKey: String(item?.apiKey || "").trim(),
+    model: String(item?.model || "").trim(),
+  }));
+}
+
 function createDefaultPrompts(isChinese = localeIsChinese) {
   if (isChinese) {
     return {
@@ -65,6 +77,12 @@ export const DEFAULT_SETTINGS = {
   oauthTokenPath: "",
   oauthUserInfoPath: "",
   promptExportPath: "",
+  openaiCompatFailoverEnabled: true,
+  openaiCompatPreferredConnection: "primary",
+  openaiCompatBackups: [
+    { name: "Backup 1", baseUrl: "", apiKey: "", model: "" },
+    { name: "Backup 2", baseUrl: "", apiKey: "", model: "" },
+  ],
   openaiCompat: {
     baseUrl: "",
     apiKey: "",
@@ -82,6 +100,8 @@ export const DEFAULT_SETTINGS = {
 
 export function mergeSettings(raw = {}) {
   const prompts = raw.prompts || {};
+  const normalizedBackups = normalizeCompatBackups(raw.openaiCompatBackups);
+  const preferredConnection = String(raw.openaiCompatPreferredConnection || DEFAULT_SETTINGS.openaiCompatPreferredConnection);
   return {
     ...DEFAULT_SETTINGS,
     ...raw,
@@ -89,6 +109,17 @@ export function mergeSettings(raw = {}) {
       ...DEFAULT_SETTINGS.openaiCompat,
       ...(raw.openaiCompat || {}),
     },
+    openaiCompatFailoverEnabled: raw.openaiCompatFailoverEnabled !== undefined
+      ? !!raw.openaiCompatFailoverEnabled
+      : DEFAULT_SETTINGS.openaiCompatFailoverEnabled,
+    openaiCompatPreferredConnection: [
+      "primary",
+      "backup_1",
+      "backup_2",
+    ].includes(preferredConnection) ? preferredConnection : DEFAULT_SETTINGS.openaiCompatPreferredConnection,
+    openaiCompatBackups: normalizedBackups.length > 0
+      ? normalizedBackups
+      : DEFAULT_SETTINGS.openaiCompatBackups.map((x) => ({ ...x })),
     shortcut: {
       ...DEFAULT_SETTINGS.shortcut,
       ...(raw.shortcut || {}),
