@@ -156,10 +156,17 @@ function getCompatCandidates(settings) {
   return ordered;
 }
 
-async function callChatGptOauthApi(systemPrompt, userPrompt, settings, handlers) {
+async function callChatGptOauthApi(systemPrompt, userPrompt, settings, handlers, imageInput = null) {
   const token = await getFreshToken(settings);
   if (!token) {
     throw new Error("OAuth token unavailable.");
+  }
+
+  const content = [
+    { type: "input_text", text: userPrompt },
+  ];
+  if (imageInput) {
+    content.push({ type: "input_image", image_url: imageInput });
   }
 
   currentAbortController = new AbortController();
@@ -182,9 +189,7 @@ async function callChatGptOauthApi(systemPrompt, userPrompt, settings, handlers)
       input: [
         {
           role: "user",
-          content: [
-            { type: "input_text", text: userPrompt },
-          ],
+          content,
         },
       ],
       include: ["reasoning.encrypted_content"],
@@ -200,7 +205,14 @@ async function callChatGptOauthApi(systemPrompt, userPrompt, settings, handlers)
   return parseCodexSse(response, handlers?.onChunk);
 }
 
-async function callOpenAiCompatApi(systemPrompt, userPrompt, compat, handlers) {
+async function callOpenAiCompatApi(systemPrompt, userPrompt, compat, handlers, imageInput = null) {
+  const userContent = imageInput
+    ? [
+      { type: "text", text: userPrompt },
+      { type: "image_url", image_url: { url: imageInput } },
+    ]
+    : userPrompt;
+
   currentAbortController = new AbortController();
   const response = await fetch(`${String(compat.baseUrl).replace(/\/+$/g, "")}/chat/completions`, {
     method: "POST",
@@ -214,7 +226,7 @@ async function callOpenAiCompatApi(systemPrompt, userPrompt, compat, handlers) {
       stream: true,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
+        { role: "user", content: userContent },
       ],
     }),
     signal: currentAbortController.signal,
@@ -228,7 +240,7 @@ async function callOpenAiCompatApi(systemPrompt, userPrompt, compat, handlers) {
   return parseOpenAiSse(response, handlers?.onChunk);
 }
 
-async function callOpenAiCompatApiWithFailover(systemPrompt, userPrompt, settings, handlers) {
+async function callOpenAiCompatApiWithFailover(systemPrompt, userPrompt, settings, handlers, imageInput = null) {
   const candidates = getCompatCandidates(settings);
   if (!candidates.length) {
     throw new Error("OpenAI compatible API is not configured.");
@@ -239,7 +251,7 @@ async function callOpenAiCompatApiWithFailover(systemPrompt, userPrompt, setting
   for (let i = 0; i < candidates.length; i += 1) {
     const candidate = candidates[i];
     try {
-      return await callOpenAiCompatApi(systemPrompt, userPrompt, candidate, handlers);
+      return await callOpenAiCompatApi(systemPrompt, userPrompt, candidate, handlers, imageInput);
     } catch (error) {
       if (error?.name === "AbortError") {
         throw error;
@@ -257,9 +269,20 @@ async function callOpenAiCompatApiWithFailover(systemPrompt, userPrompt, setting
 export async function callAi(systemPrompt, userPrompt, settings, handlers = {}) {
   try {
     if (settings.provider === "openai_compat") {
-      return await callOpenAiCompatApiWithFailover(systemPrompt, userPrompt, settings, handlers);
+      return await callOpenAiCompatApiWithFailover(systemPrompt, userPrompt, settings, handlers, null);
     }
-    return await callChatGptOauthApi(systemPrompt, userPrompt, settings, handlers);
+    return await callChatGptOauthApi(systemPrompt, userPrompt, settings, handlers, null);
+  } finally {
+    currentAbortController = null;
+  }
+}
+
+export async function callAiWithImage(systemPrompt, userPrompt, imageInput, settings, handlers = {}) {
+  try {
+    if (settings.provider === "openai_compat") {
+      return await callOpenAiCompatApiWithFailover(systemPrompt, userPrompt, settings, handlers, imageInput);
+    }
+    return await callChatGptOauthApi(systemPrompt, userPrompt, settings, handlers, imageInput);
   } finally {
     currentAbortController = null;
   }

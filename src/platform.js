@@ -353,6 +353,80 @@ export function readFileText(filePath) {
   }
 }
 
+function decodeFileUrlToPath(fileUrl) {
+  try {
+    const url = new URL(fileUrl);
+    let pathname = decodeURIComponent(url.pathname || "");
+    if (/^\/[A-Za-z]:\//.test(pathname)) {
+      pathname = pathname.slice(1);
+    }
+    return pathname.replace(/\//g, "\\");
+  } catch (_) {
+    return null;
+  }
+}
+
+function guessMimeTypeFromPath(filePath) {
+  const pathModule = getNodeModule("path");
+  const ext = String(pathModule?.extname?.(filePath) || "").toLowerCase();
+  const map = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".bmp": "image/bmp",
+    ".tif": "image/tiff",
+    ".tiff": "image/tiff",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".avif": "image/avif",
+  };
+  return map[ext] || "application/octet-stream";
+}
+
+function filePathToDataUrl(filePath) {
+  const fs = getNodeModule("fs");
+  if (!fs) {
+    throw new Error("Node fs module is unavailable.");
+  }
+
+  const normalizedPath = normalizeForFs(filePath);
+  if (!fs.existsSync(normalizedPath)) {
+    throw new Error(`Image file not found: ${filePath}`);
+  }
+
+  const buffer = fs.readFileSync(normalizedPath);
+  const mime = guessMimeTypeFromPath(normalizedPath);
+  return `data:${mime};base64,${Buffer.from(buffer).toString("base64")}`;
+}
+
+export function prepareImageInputForModel(imageSource) {
+  const source = String(imageSource || "").trim();
+  if (!source) {
+    throw new Error("Image source is empty.");
+  }
+
+  if (source.startsWith("data:")) {
+    return source;
+  }
+  if (/^https?:\/\//i.test(source)) {
+    return source;
+  }
+  if (source.startsWith("blob:")) {
+    throw new Error("Blob image URLs are not supported. Please use a local file or http(s) image.");
+  }
+  if (/^file:\/\//i.test(source)) {
+    const localPath = decodeFileUrlToPath(source);
+    if (!localPath) {
+      throw new Error("Invalid file URL for image.");
+    }
+    return filePathToDataUrl(localPath);
+  }
+
+  return filePathToDataUrl(source);
+}
+
 function locateTokenRecord(settings) {
   const candidatePaths = getTokenCandidatePaths(settings);
   let firstProblem = null;

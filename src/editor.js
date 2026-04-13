@@ -31,10 +31,39 @@
     try {
       const selection = window.getSelection();
       const node = selection && (selection.focusNode || selection.anchorNode);
+      this.captureInsertionTargetFromNode(node);
+    } catch (_) {
+      this.insertTarget = null;
+    }
+  }
+
+  captureInsertionTargetFromNode(node) {
+    try {
       const element = node && (node.nodeType === 1 ? node : node.parentElement);
       this.insertTarget = element && (element.closest("[cid]") || element.closest("p") || element.closest("li") || element.closest("h1,h2,h3,h4,h5,h6") || element);
     } catch (_) {
       this.insertTarget = null;
+    }
+  }
+
+  getImageElementFromTarget(node) {
+    try {
+      const element = node && (node.nodeType === 1 ? node : node.parentElement);
+      if (!element) {
+        return null;
+      }
+      if (String(element.tagName || "").toLowerCase() === "img") {
+        return element;
+      }
+
+      const container = element.closest(".md-image, .md-image-wrap, .md-image-container, figure, .image-container");
+      if (!container || !container.querySelector) {
+        return null;
+      }
+      const img = container.querySelector("img");
+      return img || null;
+    } catch (_) {
+      return null;
     }
   }
 

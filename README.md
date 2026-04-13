@@ -9,6 +9,7 @@ This Windows port focuses on a stable writing workflow:
 - ask writing questions with `Ctrl + E`
 - support ChatGPT OAuth token files on Windows
 - support OpenAI-compatible APIs
+- If this plugin is useful, please give me a STAR ⭐ to support me! Thanks！
 
 ## Features
 
@@ -16,7 +17,7 @@ Included:
 
 - `AI Optimize (With Selection only)`
 - `AI Optimize (With Full Context)`
-- `AI Q&A` via `Ctrl + E`
+- `AI Q&A` via `Ctrl + E` (Support Image in Version 1.4.0)
 - settings page inside Typora Community Plugins
 - Select the model supported
 
@@ -134,6 +135,20 @@ The answer can then be inserted into the document.
 
 ![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/854981fa4574014331d19f3da39d7ffeb7f8720e/asset/AI_Q&A.png?raw=true)
 
+### Ask Image
+
+Right click to the Image to show:
+
+![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/main/asset/Image.png?raw=true)
+
+Then enter the question:
+
+![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/main/asset/ImageQA.png?raw=true)
+
+Output: you can insert the answer to your file or copy it.
+
+![](https://github.com/KokuYu-sysu/typora-gpt-edit/blob/main/asset/ImageA.png?raw=true)
+
 ## Default behavior
 
 - Right-click AI actions only appear when text is selected in the editor.
@@ -163,10 +178,13 @@ Main files:
 - `src/settings-tab.js`
 - `src/config.js`
 - `src/ui.js`
+- `src/editor.js`
 - `test/api-failover.test.js`
 - `test/api-preferred-connection.test.js`
 - `test/platform.oauth.test`
 - `test/prompt-export.test`
+- `test/image-input.test.js`
+- `test/editor-image-target.test.js`
 
 ## Known limitations
 
@@ -191,9 +209,10 @@ In developing and implementing this project, I used another project, https://git
 ## Updated history
 
 - Version 0.1.0: Initial release
-- Version 1.1.0 : Updated operation logic, added shortcut, optimized expression, added login button
+- Version 1.1.0: Updated operation logic, added shortcut, optimized expression, added login button
 - Version 1.2.0: Fixed login-related issues and added prompt import/export support for easier migration.
 - Version 1.3.0: Support an OpenAI-compatible method for using typora-ai-edit plugin.
+- Version 1.4.0: Support AI Q&A to image
 
 ## License
 

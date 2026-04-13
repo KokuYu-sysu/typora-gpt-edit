@@ -1,8 +1,9 @@
 ﻿const { Plugin, PluginSettings, Notice } = window[Symbol.for("typora-plugin-core@v2")];
 
-import { callAi, abortCurrentRequest } from "./api.js";
+import { callAi, callAiWithImage, abortCurrentRequest } from "./api.js";
 import { DEFAULT_SETTINGS, mergeSettings, shortcutMatches } from "./config.js";
 import { EditorSelectionController } from "./editor.js";
+import { prepareImageInputForModel } from "./platform.js";
 import { AiEditSettingTab } from "./settings-tab.js";
 import { ensureStyles, removeStyles, showToast, openContextMenu, closeContextMenu, promptForText, createStreamDialog, closeAnyDialog } from "./ui.js";
 
@@ -24,6 +25,7 @@ export default class AiEditPlugin extends Plugin {
   constructor() {
     super(...arguments);
     this.editorSelection = new EditorSelectionController();
+    this.bypassNextContextMenu = false;
     this.handleContextMenu = this.handleContextMenu.bind(this);
     this.handleKeyDown = this.handleKeyDown.bind(this);
   }
@@ -81,7 +83,54 @@ export default class AiEditPlugin extends Plugin {
   }
 
   handleContextMenu(event) {
+    if (this.bypassNextContextMenu) {
+      this.bypassNextContextMenu = false;
+      return;
+    }
+
     if (!this.editorSelection.isEditorTarget(event.target)) {
+      return;
+    }
+
+    const imageElement = this.editorSelection.getImageElementFromTarget(event.target);
+    if (imageElement) {
+      const nativeMenuEvent = {
+        clientX: event.clientX,
+        clientY: event.clientY,
+        screenX: event.screenX,
+        screenY: event.screenY,
+        ctrlKey: !!event.ctrlKey,
+        shiftKey: !!event.shiftKey,
+        altKey: !!event.altKey,
+        metaKey: !!event.metaKey,
+      };
+      this.editorSelection.captureInsertionTargetFromNode(imageElement);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      openContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        items: [
+          {
+            label: "AI Ask About Image",
+            description: "Ask questions about this image and insert the answer.",
+            value: "image_qa",
+          },
+          {
+            label: "Open Typora Menu",
+            description: "Show Typora's original context menu for this image.",
+            value: "native_menu",
+          },
+        ],
+        onSelect: (value) => {
+          if (value === "image_qa") {
+            this.openImageQaFlow(imageElement);
+          }
+          if (value === "native_menu") {
+            this.openNativeContextMenu(nativeMenuEvent, imageElement);
+          }
+        },
+      });
       return;
     }
 
@@ -156,6 +205,38 @@ export default class AiEditPlugin extends Plugin {
       this.editorSelection.captureSelection();
       this.openOptimizeFlow(true);
     }
+  }
+
+  openNativeContextMenu(eventInfo, targetNode) {
+    if (!eventInfo || !Number.isFinite(eventInfo.clientX) || !Number.isFinite(eventInfo.clientY)) {
+      return;
+    }
+    const fallbackTarget = document.elementFromPoint(eventInfo.clientX, eventInfo.clientY);
+    const target = targetNode || fallbackTarget;
+    if (!target) {
+      return;
+    }
+
+    this.bypassNextContextMenu = true;
+    const nativeEvent = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      button: 2,
+      buttons: 2,
+      clientX: eventInfo.clientX,
+      clientY: eventInfo.clientY,
+      screenX: eventInfo.screenX,
+      screenY: eventInfo.screenY,
+      ctrlKey: !!eventInfo.ctrlKey,
+      shiftKey: !!eventInfo.shiftKey,
+      altKey: !!eventInfo.altKey,
+      metaKey: !!eventInfo.metaKey,
+    });
+    target.dispatchEvent(nativeEvent);
+    window.setTimeout(() => {
+      this.bypassNextContextMenu = false;
+    }, 0);
   }
 
   async openOptimizeFlow(withContext) {
@@ -262,6 +343,81 @@ export default class AiEditPlugin extends Plugin {
 
     try {
       const result = await callAi(promptConfig.system, userPrompt, settings, {
+        onChunk: (chunk) => stream.append(chunk),
+      });
+      if (!result.trim()) {
+        stream.showError("The model returned an empty response.");
+        return;
+      }
+      stream.showCompleted({
+        confirmText: "Insert",
+        onConfirm: (value) => {
+          const ok = this.editorSelection.insertResponse(value);
+          stream.close();
+          showToast(ok ? "Response inserted." : "Insert failed.", ok ? "success" : "error");
+        },
+      });
+    } catch (error) {
+      if (error && error.name === "AbortError") {
+        stream.showCompleted({
+          confirmText: "Insert",
+          onConfirm: (value) => {
+            const ok = this.editorSelection.insertResponse(value);
+            stream.close();
+            showToast(ok ? "Response inserted." : "Insert failed.", ok ? "success" : "error");
+          },
+        });
+      } else {
+        stream.showError(error?.message || "The request failed.");
+      }
+    }
+  }
+
+  async openImageQaFlow(imageElement) {
+    const imageSource = String(
+      imageElement?.currentSrc
+      || imageElement?.src
+      || imageElement?.getAttribute?.("src")
+      || ""
+    ).trim();
+    if (!imageSource) {
+      showToast("Cannot read image source from the selected image.", "error");
+      return;
+    }
+
+    const question = await promptForText({
+      title: "AI Image Q&A",
+      label: "Ask a question about this image",
+      placeholder: "For example: explain the key findings shown in this figure.",
+      confirmText: "Start",
+    });
+    if (!question) {
+      return;
+    }
+
+    let imageInput;
+    try {
+      imageInput = prepareImageInputForModel(imageSource);
+    } catch (error) {
+      showToast(error?.message || "Image preprocessing failed.", "error");
+      return;
+    }
+
+    const settings = this.getSettings();
+    const promptConfig = settings.prompts.image_qa || {
+      system: "You are an image interpretation assistant.",
+      user: "Answer based on the image.\n\nQuestion: {question}",
+    };
+    const userPrompt = promptConfig.user.replace(/\{question\}/g, question);
+
+    const stream = createStreamDialog({
+      title: "AI Image Q&A",
+      waitingText: "Waiting for AI response...",
+      onStop: () => abortCurrentRequest(),
+    });
+
+    try {
+      const result = await callAiWithImage(promptConfig.system, userPrompt, imageInput, settings, {
         onChunk: (chunk) => stream.append(chunk),
       });
       if (!result.trim()) {

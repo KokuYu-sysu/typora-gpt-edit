@@ -119,9 +119,9 @@ export class AiEditSettingTab extends SettingTab {
           </div>
         </div>
         <div>
-          <label for="ai-edit-prompt-export-path">Setting JSON File Path</label>
+          <label for="ai-edit-prompt-export-path">Setting JSON File with Prompts Path</label>
           <input id="ai-edit-prompt-export-path" type="text" value="${escapeHtml(settings.promptExportPath || "")}" />
-          <div class="ai-edit-setting-note">Export or import JSON.</div>
+          <div class="ai-edit-setting-note">Export or import Prompts JSON.</div>
           <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="ai-edit-btn secondary" id="ai-edit-export-prompts">Output Setting</button>
             <button class="ai-edit-btn secondary" id="ai-edit-import-prompts">Import Setting</button>
@@ -158,7 +158,7 @@ export class AiEditSettingTab extends SettingTab {
               <option value="backup_1" ${settings.openaiCompatPreferredConnection === "backup_1" ? "selected" : ""}>Backup API 1</option>
               <option value="backup_2" ${settings.openaiCompatPreferredConnection === "backup_2" ? "selected" : ""}>Backup API 2</option>
             </select>
-            <div class="ai-edit-setting-card-note">Set this to Backup API 1/2 to directly use providers like DeepSeek during normal use.</div>
+            <div class="ai-edit-setting-card-note">Set this to Backup API 1/2 to directly use other AI models during normal use.</div>
           </div>
           <div class="ai-edit-setting-subgrid">
             <div>
@@ -218,6 +218,14 @@ export class AiEditSettingTab extends SettingTab {
         <div>
           <label for="ai-edit-qa-context-user">Q&amp;A With Context User Prompt</label>
           <textarea id="ai-edit-qa-context-user" rows="4">${escapeHtml(settings.prompts.qa_with_context.user)}</textarea>
+        </div>
+        <div>
+          <label for="ai-edit-image-qa-system">Image Q&amp;A System Prompt</label>
+          <textarea id="ai-edit-image-qa-system" rows="3">${escapeHtml(settings.prompts.image_qa.system)}</textarea>
+        </div>
+        <div>
+          <label for="ai-edit-image-qa-user">Image Q&amp;A User Prompt</label>
+          <textarea id="ai-edit-image-qa-user" rows="3">${escapeHtml(settings.prompts.image_qa.user)}</textarea>
         </div>
       </div>
       <div style="margin-top: 14px; display: flex; gap: 10px;">
@@ -375,6 +383,10 @@ export class AiEditSettingTab extends SettingTab {
           qa_with_context: {
             system: container.querySelector("#ai-edit-qa-context-system").value,
             user: container.querySelector("#ai-edit-qa-context-user").value,
+          },
+          image_qa: {
+            system: container.querySelector("#ai-edit-image-qa-system").value,
+            user: container.querySelector("#ai-edit-image-qa-user").value,
           },
         },
       });

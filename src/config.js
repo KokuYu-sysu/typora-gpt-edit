@@ -48,6 +48,10 @@ function createDefaultPrompts(isChinese = localeIsChinese) {
         system: "你是一位论文写作助手。请结合用户当前正在编辑的完整文档来回答问题，并使用纯文本，不要使用 Markdown 标记。",
         user: "完整文档：\n\n<document>\n{document}\n</document>\n\n用户问题：\n{question}",
       },
+      image_qa: {
+        system: "你是一位图像解读与学术写作助手。请基于图像内容准确回答问题，若信息不足请明确说明。",
+        user: "请根据这张图片回答问题。只输出答案正文，不要添加多余说明。\n\n问题：{question}",
+      },
     };
   }
 
@@ -67,6 +71,10 @@ function createDefaultPrompts(isChinese = localeIsChinese) {
     qa_with_context: {
       system: "You are a writing assistant for academic papers. Use the current document as context and answer in plain text without Markdown formatting.",
       user: "Full document:\n\n<document>\n{document}\n</document>\n\nUser question:\n{question}",
+    },
+    image_qa: {
+      system: "You are an image interpretation and writing assistant. Answer accurately based on the image and clearly state uncertainty when needed.",
+      user: "Answer the question based on this image. Return only the answer text.\n\nQuestion: {question}",
     },
   };
 }
@@ -142,6 +150,10 @@ export function mergeSettings(raw = {}) {
       qa_with_context: {
         ...DEFAULT_SETTINGS.prompts.qa_with_context,
         ...(prompts.qa_with_context || {}),
+      },
+      image_qa: {
+        ...DEFAULT_SETTINGS.prompts.image_qa,
+        ...(prompts.image_qa || {}),
       },
     },
   };
